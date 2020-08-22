@@ -1,0 +1,12 @@
+@html.extend('layout', function(model) {
+
+  @html.block('content', function(model) {
+    <h1>Index Page</h1>
+    <a href="/login"> Let's Get Started! </a>
+  })
+
+  @html.block('trailer', function(model){
+    <p>This is a trailer</p>
+  })
+
+})

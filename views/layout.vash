@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta>
+  <title>@model.title</title>
+  <link rel='stylesheet' href='/stylesheets/style.css' />
+</head>
+<body>
+  @html.block('content')    <!--Wird zur Laufzeit ersetzt durch konkreten html.block('content')-->
+  @html.block('trailer')
+</body>
+</html>
