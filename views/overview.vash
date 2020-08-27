@@ -2,7 +2,11 @@
 
   @html.block('content', function(model) {
     <h1>Overview Page</h1>
-
+    <form action="/overview/artistInput" method="post">
+        <label for="artistName">Artist: </label>
+        <input type="text" id="artistName" name="artist">
+        <input type="submit">
+    </form>
   })
 
 })
