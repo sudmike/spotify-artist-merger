@@ -5,8 +5,16 @@
     <form action="/overview/artistInput" method="post">
         <label for="artistName">Artist: </label>
         <input type="text" id="artistName" name="artist">
-        <input type="submit">
+        <input type="submit" value="Include">
     </form>
+
+    <br>
+    <br>
+
+    <form action="/overview/artistSelectionDone" method="post">
+        <input type="submit" value="Finish">
+    </form>
+
   })
 
 })

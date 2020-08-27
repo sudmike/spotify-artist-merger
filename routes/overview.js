@@ -20,4 +20,15 @@ router.post('/artistInput', function(req,res){
     res.redirect('/overview')
 })
 
+/* Create Playlist */
+router.post('/artistSelectionDone', function(req, res){
+
+    console.log('Create Playlist with these Artists: ', artists)
+
+    artists = []
+
+    res.redirect('/overview')
+
+})
+
 module.exports = router;
