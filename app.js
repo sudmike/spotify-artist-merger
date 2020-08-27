@@ -50,7 +50,7 @@ app.use(function(err, req, res, next) {
 
 var spotifyApi = new SpotifyWebApi({
   clientId: '8c08a50634a84a1f8786e261409f71e4',
-  clientSecret: '2de26183851540a69c4cff90d2761ee0',
+  clientSecret: '',
   redirectUri: 'http://localhost:3000/login/callback'
 });
 
