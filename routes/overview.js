@@ -6,9 +6,11 @@ var artists = []
 /* GET overview page. */
 router.get('/', function(req, res, next) {
 
+    artists = []
     res.render('overview')
 
 });
+
 
 /* Input of Artist */
 router.post('/artistInput', function(req,res){
@@ -17,7 +19,7 @@ router.post('/artistInput', function(req,res){
 
     console.log(artists)
 
-    res.redirect('/overview')
+    res.render('overview')
 })
 
 /* Create Playlist */
@@ -25,8 +27,7 @@ router.post('/artistSelectionDone', function(req, res){
 
     console.log('Create Playlist with these Artists: ', artists)
 
-    artists = []
-
+    //Back to default state
     res.redirect('/overview')
 
 })
