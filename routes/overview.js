@@ -14,7 +14,7 @@ router.get('/', function(req, res, next) {
 
 
 /* Input of Artist */
-router.post('/artistInput', function(req,res){
+router.post('/', function(req,res){
 
     //verify that the input is a valid artist and add their correct name
     tools.checkArtist(spotify.spotifyApi, req.body['artist'])
@@ -22,7 +22,6 @@ router.post('/artistInput', function(req,res){
             //Check that the artist has not already been added
             if(artists.indexOf(data) === -1) {
                 artists.push(data)
-                console.log('In Overview.js: ', data)
             }
 
             else{
@@ -32,7 +31,7 @@ router.post('/artistInput', function(req,res){
         })
         .catch(err => {
             /*Local Error Handling*/
-            console.log('Error in overview.js', err)
+            console.log(err)
         })
 
     res.render('overview')
