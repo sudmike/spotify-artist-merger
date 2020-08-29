@@ -1,4 +1,5 @@
 var express = require('express');
+var tools = require('../public/javascripts/tools');
 var router = express.Router();
 
 var artists = []
@@ -15,9 +16,24 @@ router.get('/', function(req, res, next) {
 /* Input of Artist */
 router.post('/artistInput', function(req,res){
 
-    artists.push(req.body['artist'])
+    //verify that the input is a valid artist and add their correct name
+    tools.checkArtist(spotify.spotifyApi, req.body['artist'])
+        .then(data => {
+            //Check that the artist has not already been added
+            if(artists.indexOf(data) === -1) {
+                artists.push(data)
+                console.log('In Overview.js: ', data)
+            }
 
-    console.log(artists)
+            else{
+                /* Local Error Handling */
+                console.log(new Error("This artist was already added"));
+            }
+        })
+        .catch(err => {
+            /*Local Error Handling*/
+            console.log('Error in overview.js', err)
+        })
 
     res.render('overview')
 })
