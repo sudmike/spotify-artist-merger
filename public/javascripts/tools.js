@@ -1,4 +1,4 @@
-
+var numWords = require('num-words')
 module.exports = {
 
     checkArtist: async function(spotifyApi, artist){
@@ -30,6 +30,19 @@ module.exports = {
                 response = Promise.reject(new Error("Artist fetch Error"))
             })
         return response
-    }
+    },
 
+generatePlaylistAndFill: async function(spotifyApi, artists){
+        console.log(generateTitle(artists))
+    }
+}
+
+var generateTitle = function(artists){
+    var playlistName = 'These are '
+
+    if(artists.length === 2) playlistName += artists[0] + ' and ' + artists[1]
+    else if(artists.length === 3) playlistName += artists[0] + ', ' + artists[1] + ' and ' + artists[2]
+    else playlistName += artists[0] + ', ' + artists[1] + ' and ' + numWords(artists.length-2) + ' others'
+
+    return playlistName
 }
