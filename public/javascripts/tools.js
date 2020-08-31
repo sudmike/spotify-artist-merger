@@ -1,4 +1,3 @@
-var numWords = require('num-words')
 module.exports = {
 
     checkArtist: async function(spotifyApi, artist){
@@ -35,6 +34,15 @@ module.exports = {
     generatePlaylistAndFill: async function(spotifyApi, artists){
         console.log('Title: ', generateTitle(artists))
         console.log('Description: ', generateDescription(artists))
+
+        spotifyApi.createPlaylist(await getUsername(spotifyApi), generateTitle(artists), {'public' : false, 'description' : generateDescription(artists)})
+            .then(function(data){
+                console.log('Playlist ID: ', data.body.id)
+            })
+            .catch(function(err){
+                /* Error Handling */
+                console.log('Playlist could not be created: ', err)
+            })
     }
 }
 
@@ -43,7 +51,7 @@ var generateTitle = function(artists){
 
     if(artists.length === 2) playlistName += artists[0] + ' and ' + artists[1]
     else if(artists.length === 3) playlistName += artists[0] + ', ' + artists[1] + ' and ' + artists[2]
-    else playlistName += artists[0] + ', ' + artists[1] + ' and ' + numWords(artists.length-2) + ' others'
+    else playlistName += artists[0] + ', ' + artists[1] + ' and others'
 
     return playlistName
 }
@@ -70,4 +78,15 @@ var prepArtistsForDescription = function(artists){
         artists[i] = artists[i].replace(/,/g,'') //remove all commas
     }
     return artists
+}
+
+var getUsername = async function(spotifyApi){
+    return spotifyApi.getMe()
+        .then(function(data){
+            return (data.body.id)
+        })
+        .catch(function(err) {
+            // Error Handling //
+            console.log('Could not get User', err)
+        })
 }
