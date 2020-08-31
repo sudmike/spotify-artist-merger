@@ -32,8 +32,9 @@ module.exports = {
         return response
     },
 
-generatePlaylistAndFill: async function(spotifyApi, artists){
-        console.log(generateTitle(artists))
+    generatePlaylistAndFill: async function(spotifyApi, artists){
+        console.log('Title: ', generateTitle(artists))
+        console.log('Description: ', generateDescription(artists))
     }
 }
 
@@ -45,4 +46,28 @@ var generateTitle = function(artists){
     else playlistName += artists[0] + ', ' + artists[1] + ' and ' + numWords(artists.length-2) + ' others'
 
     return playlistName
+}
+
+var generateDescription = function(artists){
+    artists = prepArtistsForDescription(artists)
+
+    var playlistDescription = 'This Playlist was auto-generated! '
+
+    playlistDescription += 'Artists are ' + artists[0]
+    for(var i = 1; i < artists.length-1; i++){
+        playlistDescription += ', ' + artists[i]
+    }
+    playlistDescription += ' and ' + artists[artists.length-1] + '.'
+
+    return playlistDescription
+}
+
+/* Sort artists and take Commas out of names to prevent confusion of delimiters. Eg 'Tyler, the creator' to 'Tyler the creator' */
+var prepArtistsForDescription = function(artists){
+    artists.sort()
+
+    for(var i = 0; i < artists.length; i++){
+        artists[i] = artists[i].replace(/,/g,'') //remove all commas
+    }
+    return artists
 }
