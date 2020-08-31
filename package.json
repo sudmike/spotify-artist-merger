@@ -2,9 +2,14 @@
   "name": "artist-merger",
   "version": "1.0.0",
   "dependencies": {
-    "num-words": "^1.2.0"
+    "express": "^4.17.1",
+    "morgan": "^1.10.0",
+    "num-words": "^1.2.0",
+    "vash": "^0.13.0"
   },
   "devDependencies": {
-    "http-errors": "^1.8.0"
+    "cookie-parser": "^1.4.5",
+    "http-errors": "^1.8.0",
+    "spotify-web-api-node": "^4.0.0"
   }
 }
