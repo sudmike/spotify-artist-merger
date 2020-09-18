@@ -31,21 +31,20 @@ module.exports = {
     generatePlaylistAndFill: async function(spotifyApi, artists){
         console.log('Title: ', generateTitle(artists))
         console.log('Description: ', generateDescription(artists))
+        var songList = await generateSongList(spotifyApi, artists)
 
-        await generateSongList(spotifyApi, artists)
-
-        /*
-        spotifyApi.createPlaylist(await getUsername(spotifyApi), generateTitle(artists), {'public' : false, 'description' : generateDescription(artists)})
+        await spotifyApi.createPlaylist(await getUsername(spotifyApi), generateTitle(artists), {'public' : false, 'description' : generateDescription(artists)})
             .then(function(data){
                 console.log('Playlist ID: ', data.body.id)
-                spotifyApi.addTracksToPlaylist(data.body.id, generateSongList(spotifyApi, artists))
+                spotifyApi.addTracksToPlaylist(data.body.id, songList)
             })
             .catch(function(err){
-                /* Error Handling /
+                // Error Handling //
                 console.log('Playlist could not be created: ', err)
             })
 
-         */
+    console.log('Playlist created')
+
     }
 }
 
@@ -94,15 +93,14 @@ var getUsername = async function(spotifyApi){
         })
 }
 
-var generateSongList = async function(spotifyApi, artists){
-    //var songList =[]
+var generateSongList = async function(spotifyApi, artists, nrOfSongs = 20){
+    var songList = []
     //create song List from each artists This Is playlist
-    //for(var i = 0; i < artists.length; i++){
-        //songList += extractTracksOfArtist(spotifyApi, artists[i], 25)
-    //}
+    for (var i = 0; i < artists.length; i++){
+        songList = songList.concat(await extractTracksOfArtist(spotifyApi, artists[i], nrOfSongs))
+    }
 
-    console.log(await extractTracksOfArtist(spotifyApi, artists[0], 25))
-
+    return await shuffleArray(songList)
 }
 
 var extractTracksOfArtist = async function(spotifyApi, artist, nrOfSongs){
@@ -123,7 +121,7 @@ var extractTracksOfArtist = async function(spotifyApi, artist, nrOfSongs){
                     else{
                         //Transfer all Track URIs != null from Playlist to array
                         for(var i = 0; i < data.body.tracks.items.length; i++){
-                            if(data.body.tracks.items[i].track !== null) songURIs.push(data.body.tracks.items[i].track.uri + i)
+                            if(data.body.tracks.items[i].track !== null) songURIs.push(data.body.tracks.items[i].track.uri)
                         }
 
                         //return filtered array filled with Track URIs
