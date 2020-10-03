@@ -12,6 +12,8 @@
     <br>
 
     <form action="/overview/artistSelectionDone" method="post">
+        <label for="playlistName">Playlistname: </label>
+        <input type="text" id="playlistName" name="playlistName" placeholder="optional">
         <input type="submit" value="Finish">
     </form>
 

@@ -28,12 +28,12 @@ module.exports = {
             })
     },
 
-    generatePlaylistAndFill: async function(spotifyApi, artists){
-        console.log('Title: ', generateTitle(artists))
+    generatePlaylistAndFill: async function(spotifyApi, artists, title = generateTitle(artists)){
+        console.log('Title: ', title)
         console.log('Description: ', generateDescription(artists))
         var songList = await generateSongList(spotifyApi, artists)
 
-        await spotifyApi.createPlaylist(await getUsername(spotifyApi), generateTitle(artists), {'public' : false, 'description' : generateDescription(artists)})
+        await spotifyApi.createPlaylist(await getUsername(spotifyApi), title, {'public' : false, 'description' : generateDescription(artists)})
             .then(function(data){
                 console.log('Playlist ID: ', data.body.id)
                 spotifyApi.addTracksToPlaylist(data.body.id, songList)
