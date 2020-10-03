@@ -40,6 +40,15 @@ router.post('/', function(req,res){
 /* Create Playlist */
 router.post('/artistSelectionDone', function(req, res){
 
+    if(req.body['playlistName'] === '') { //default
+        tools.generatePlaylistAndFill(spotify.spotifyApi, artists)
+            .then(function(){}).catch(function(){})
+    }
+    else { //Playlist Name given
+        tools.generatePlaylistAndFill(spotify.spotifyApi, artists, req.body['playlistName'])
+            .then(function(){}).catch(function(){})
+    }
+
     console.log('Create Playlist with these Artists: ', artists)
 
     //Back to default state
