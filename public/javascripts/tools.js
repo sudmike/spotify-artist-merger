@@ -40,15 +40,16 @@ module.exports = {
             .then(function(data){
                 if(songList.length > 0){
                     spotifyApi.addTracksToPlaylist(data.body.id, songList)
-                        .catch(err => { return Promise.reject(createError(err.statusCode, 'add track error')) })
+                        /*return Track Addition Error redirect*/
+                        .catch(err => { return Promise.reject(createError(err.statusCode, 'Adding Track Error')) })
                 }
 
                 //return Playlist ID
                 return Promise.resolve(data.body.id)
             })
             .catch(function(err){
-                //return playlist creation error redirect
-                return Promise.reject(createError(err.statusCode, 'playlist creation error'))
+                /*return Playlist Creation Error redirect*/
+                return Promise.reject(createError(err.statusCode, 'Playlist Creation Error'))
             })
     }
 }
@@ -93,8 +94,8 @@ var getUsername = async function(spotifyApi){
             return Promise.resolve(data.body.id)
         })
         .catch(function(err) {
-            //return user fetch error redirect
-            return Promise.reject(createError(err.statusCode, 'user fetch error'))
+            /*return User Fetch Error redirect*/
+            return Promise.reject(createError(err.statusCode, 'User Fetch Error'))
         })
 }
 
@@ -121,8 +122,8 @@ var extractTracksOfArtist = async function(spotifyApi, artist, nrOfSongs){
             return spotifyApi.getPlaylist(playlistId)
                 .then(function(data){
                     if(data.statusCode !== 200){
-                        //return Non 200 status code error redirect
-                        return Promise.reject(createError(data.statusCode,'Non 200 status code error'))
+                        /*return Non 200 Status Code Error redirect*/
+                        return Promise.reject(createError(data.statusCode,'Non 200 Status Code Error'))
                     }
                     else{
                         //Transfer all Track URIs != null from Playlist to array
@@ -135,8 +136,8 @@ var extractTracksOfArtist = async function(spotifyApi, artist, nrOfSongs){
                     }
                 })
                 .catch(function(err){
-                    //return playlist retrieval error redirect
-                    return Promise.reject(createError(err.statusCode,'playlist retrieval error'))
+                    /*return Playlist Retrieval Error redirect*/
+                    return Promise.reject(createError(err.statusCode,'Playlist Retrieval Error'))
                 })
         })
         .catch(function(err){
@@ -149,20 +150,20 @@ var getThisIsPlaylistId = async function(spotifyApi, artist){
     return spotifyApi.searchPlaylists('This Is ' + artist, {limit:1,offset:0})
         .then(function(data){
             if(data.statusCode !== 200){
-                //return Non 200 status code error redirect
-                return Promise.reject(createError(data.statusCode,'Non 200 status code error'))
+                /*return Non 200 Status Code Error redirect*/
+                return Promise.reject(createError(data.statusCode,'Non 200 Status Code Error'))
             }
             else if(data.body.playlists.items[0].owner.id !== 'spotify'){
-                //return missing artist page error redirect //better check in the beginning
-                return Promise.reject(createError(406,'missing artist page error'))
+                /*return Missing Artist Page Error redirect */ //better check in the beginning
+                return Promise.reject(createError(406,'Missing Artist Page Error'))
             }
             else{ //passed all checks
                 return Promise.resolve(data.body.playlists.items[0].id)
             }
         })
         .catch(function(err){
-            //return artist page retrieval error redirect
-            return Promise.reject(createError(err.statusCode,'artist page retrieval error'))
+            /*return Artist Page Retrieval error redirect*/
+            return Promise.reject(createError(err.statusCode,'Artist Page Retrieval Error'))
         })
 
 }

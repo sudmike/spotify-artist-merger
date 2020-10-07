@@ -16,8 +16,8 @@ router.get('/', function(req, res, next) {
 router.get('/callback', function(req, res, next){
 
     if(req.query.state !== req.cookies['spotify_auth_state']) {
-        //state_mismatch error redirect
-        next(createError(401,'state_mismatch error'))
+        /*State Mismatch Error redirect*/
+        next(createError(401,'State Mismatch Error'))
     }
     else { //matching state between Spotify and Cookie
         //clear State Cookie
@@ -33,8 +33,8 @@ router.get('/callback', function(req, res, next){
                 res.redirect('/overview')
             },
             function(err){
-                //authorization_grant error redirect
-                next(createError(err.statusCode, 'authorization_grant error'))
+                /*Authorization Grant Error redirect*/
+                next(createError(err.statusCode, 'Authorization Grant Error'))
             })
     }
 })
