@@ -5,7 +5,7 @@ var router = express.Router();
 var artists = []
 
 /* GET overview page. */
-router.get('/', function(req, res, next) {
+router.get('/', function(req, res) {
 
     artists = []
     res.render('overview')
@@ -38,22 +38,23 @@ router.post('/', function(req,res){
 })
 
 /* Create Playlist */
-router.post('/artistSelectionDone', function(req, res){
-
-    if(req.body['playlistName'] === '') { //default
-        tools.generatePlaylistAndFill(spotify.spotifyApi, artists)
-            .then(function(){}).catch(function(){})
-    }
-    else { //Playlist Name given
-        tools.generatePlaylistAndFill(spotify.spotifyApi, artists, req.body['playlistName'])
-            .then(function(){}).catch(function(){})
-    }
+router.post('/artistSelectionDone', function(req, res, next){
 
     console.log('Create Playlist with these Artists: ', artists)
 
-    //Back to default state
-    res.redirect('/overview')
+    if(req.body['playlistName'] !== '')
+        var playlistName = req.body['playlistName']
 
+    tools.generatePlaylistAndFill(spotify.spotifyApi, artists, playlistName)
+        .then(data=>{
+            console.log('Playlist created: ', data)
+
+            res.redirect('/overview')
+        })
+        .catch(err=>{
+            //err is a HTTP-Error
+            next(err)
+        })
 })
 
 module.exports = router;
