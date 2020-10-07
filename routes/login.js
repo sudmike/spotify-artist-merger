@@ -1,5 +1,7 @@
 var express = require('express');
 var router = express.Router();
+var createError = require('http-errors');
+
 
 /* Redirect to Spotify's Login Page. */
 router.get('/', function(req, res, next) {
@@ -11,12 +13,11 @@ router.get('/', function(req, res, next) {
 
 
 /* Fetch Response code from Spotify and generate initial token pair*/
-router.get('/callback', function(req, res){
+router.get('/callback', function(req, res, next){
 
     if(req.query.state !== req.cookies['spotify_auth_state']) {
-        /*Error Handling*/
-        //state_mismatch error redirect
-        console.log('state_mismatch Error')
+        /*State Mismatch Error redirect*/
+        next(createError(401,'State Mismatch Error'))
     }
     else { //matching state between Spotify and Cookie
         //clear State Cookie
@@ -32,9 +33,8 @@ router.get('/callback', function(req, res){
                 res.redirect('/overview')
             },
             function(err){
-                /*Error Handling*/
-                //authorization_grant error redirect
-                console.log('authorization_grant Error', err)
+                /*Authorization Grant Error redirect*/
+                next(createError(err.statusCode, 'Authorization Grant Error'))
             })
     }
 })

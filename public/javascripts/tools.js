@@ -1,50 +1,62 @@
+var createError = require('http-errors');
+
 module.exports = {
 
     checkArtist: async function(spotifyApi, artist){
 
         // artist input field left empty
-        if(artist === undefined || artist === '') return Promise.reject(new Error("Nothing in Artist field"))
+        if(artist === undefined || artist === '') return Promise.reject(new Error('empty artist field'))
 
         // search Spotify with artist input and return artist if resolved and error if rejected
         return spotifyApi.searchArtists(artist, {limit: 1, offset: 0})
             .then(function(data) {
                 if(data.statusCode !== 200){
-                    /* Error Handling */
-                    return Promise.reject(new Error("Status Code of Spotify not 200"))
+                    /*return Non 200 Status Code error*/
+                    return Promise.reject(new Error('non 200 status code'))
                 }
 
                 else{
                     if(data.body.artists.items.length === 0){
-                        return Promise.reject(new Error("Could not find artist"))
+                        /*return Artist Not Found Error*/
+                        return Promise.reject(new Error("artist not found"))
                     }
                     else{
-                        return Promise.resolve(data.body.artists.items[0].name)
+                        getThisIsPlaylistId(spotifyApi, data.body.artists.items[0])
+                            .then(function(){
+                                return Promise.resolve(data.body.artists.items[0].name)
+                            })
+                            .catch(function(){
+                                return Promise.reject(new Error('non 200 status code'))
+                            })
                     }
                 }
             })
             .catch(function(err) {
-                /* Error Handling */
-                return Promise.reject(new Error("Artist fetch Error"))
+                //return artist fetch error
+                return Promise.reject(new Error("artist fetch error"))
             })
     },
 
     generatePlaylistAndFill: async function(spotifyApi, artists, title = generateTitle(artists)){
         console.log('Title: ', title)
         console.log('Description: ', generateDescription(artists))
-        var songList = await generateSongList(spotifyApi, artists)
+        var songList = await generateSongList(spotifyApi, artists).catch(err => { return Promise.reject(err) })
 
-        await spotifyApi.createPlaylist(await getUsername(spotifyApi), title, {'public' : false, 'description' : generateDescription(artists)})
+        return await spotifyApi.createPlaylist(await getUsername(spotifyApi).catch(err=>{return Promise.reject(err)}), title, {'public' : false, 'description' : generateDescription(artists)})
             .then(function(data){
-                console.log('Playlist ID: ', data.body.id)
-                spotifyApi.addTracksToPlaylist(data.body.id, songList)
+                if(songList.length > 0){
+                    spotifyApi.addTracksToPlaylist(data.body.id, songList)
+                        /*return Track Addition Error redirect*/
+                        .catch(err => { return Promise.reject(createError(err.statusCode, 'Adding Track Error')) })
+                }
+
+                //return Playlist ID
+                return Promise.resolve(data.body.id)
             })
             .catch(function(err){
-                // Error Handling //
-                console.log('Playlist could not be created: ', err)
+                /*return Playlist Creation Error redirect*/
+                return Promise.reject(createError(err.statusCode, 'Playlist Creation Error'))
             })
-
-    console.log('Playlist created')
-
     }
 }
 
@@ -85,19 +97,21 @@ var prepArtistsForDescription = function(artists){
 var getUsername = async function(spotifyApi){
     return spotifyApi.getMe()
         .then(function(data){
-            return (data.body.id)
+            return Promise.resolve(data.body.id)
         })
         .catch(function(err) {
-            // Error Handling //
-            console.log('Could not get User', err)
+            /*return User Fetch Error redirect*/
+            return Promise.reject(createError(err.statusCode, 'User Fetch Error'))
         })
 }
 
 var generateSongList = async function(spotifyApi, artists, nrOfSongs = 20){
     var songList = []
+
     //create song List from each artists This Is playlist
     for (var i = 0; i < artists.length; i++){
-        songList = songList.concat(await extractTracksOfArtist(spotifyApi, artists[i], nrOfSongs))
+        songList = songList.concat(await extractTracksOfArtist(spotifyApi, artists[i], nrOfSongs)
+            .catch(err=>{ return Promise.reject(err) }))
     }
 
     return await shuffleArray(songList)
@@ -114,9 +128,8 @@ var extractTracksOfArtist = async function(spotifyApi, artist, nrOfSongs){
             return spotifyApi.getPlaylist(playlistId)
                 .then(function(data){
                     if(data.statusCode !== 200){
-                        /* Error Handling */
-                        console.log('Code from Spotify that is not 200')
-                        return Promise.reject(new Error('Code from Spotify that is not 200'))
+                        /*return Non 200 Status Code Error redirect*/
+                        return Promise.reject(createError(data.statusCode,'Non 200 Status Code Error'))
                     }
                     else{
                         //Transfer all Track URIs != null from Playlist to array
@@ -129,36 +142,34 @@ var extractTracksOfArtist = async function(spotifyApi, artist, nrOfSongs){
                     }
                 })
                 .catch(function(err){
-                    /* Error Handling */
-                    console.log('An artists page could not be retrieved', err)
-                    return Promise.reject(new Error('An artists page could not be retrieved'))
+                    /*return Playlist Retrieval Error redirect*/
+                    return Promise.reject(createError(err.statusCode,'Playlist Retrieval Error'))
                 })
         })
         .catch(function(err){
-            /* Error Handling */
-            console.log(err)
-            return Promise.reject(new Error(err))
+            //return rejection redirect of Function getThisIsPlaylistId
+            return Promise.reject(err)
         })
 }
 
 var getThisIsPlaylistId = async function(spotifyApi, artist){
-     return spotifyApi.searchPlaylists('This Is ' + artist, {limit:1,offset:0})
+    return spotifyApi.searchPlaylists('This Is ' + artist, {limit:1,offset:0})
         .then(function(data){
             if(data.statusCode !== 200){
-                /* Error Handling */
-                return Promise.reject(new Error('Error Code from Spotify that is not 200'))
+                /*return Non 200 Status Code Error redirect*/
+                return Promise.reject(createError(data.statusCode,'Non 200 Status Code Error'))
             }
             else if(data.body.playlists.items[0].owner.id !== 'spotify'){
-                /* Local Error Handling */ //better check in the beginning
-                return Promise.reject(new Error('There is no This Is page for an artist'))
+                /*return Missing Artist Page Error redirect */ //better check in the beginning
+                return Promise.reject(createError(406,'Missing Artist Page Error'))
             }
             else{ //passed all checks
                 return Promise.resolve(data.body.playlists.items[0].id)
             }
         })
         .catch(function(err){
-            console.log(err)
-            return Promise.reject(new Error('An artists page could not be retrieved'))
+            /*return Artist Page Retrieval error redirect*/
+            return Promise.reject(createError(err.statusCode,'Artist Page Retrieval Error'))
         })
 
 }
