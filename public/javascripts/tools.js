@@ -11,17 +11,23 @@ module.exports = {
         return spotifyApi.searchArtists(artist, {limit: 1, offset: 0})
             .then(function(data) {
                 if(data.statusCode !== 200){
-                    //return Non 200 status code error
+                    /*return Non 200 Status Code error*/
                     return Promise.reject(new Error('non 200 status code'))
                 }
 
                 else{
                     if(data.body.artists.items.length === 0){
-                        //return artist not found Error
+                        /*return Artist Not Found Error*/
                         return Promise.reject(new Error("artist not found"))
                     }
                     else{
-                        return Promise.resolve(data.body.artists.items[0].name)
+                        getThisIsPlaylistId(spotifyApi, data.body.artists.items[0])
+                            .then(function(){
+                                return Promise.resolve(data.body.artists.items[0].name)
+                            })
+                            .catch(function(){
+                                return Promise.reject(new Error('non 200 status code'))
+                            })
                     }
                 }
             })
