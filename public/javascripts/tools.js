@@ -21,12 +21,12 @@ module.exports = {
                         return Promise.reject(new Error("artist not found"))
                     }
                     else{
-                        getThisIsPlaylistId(spotifyApi, data.body.artists.items[0])
+                        return getThisIsPlaylistId(spotifyApi, data.body.artists.items[0].name)
                             .then(function(){
                                 return Promise.resolve(data.body.artists.items[0].name)
                             })
-                            .catch(function(){
-                                return Promise.reject(new Error('non 200 status code'))
+                            .catch(function(err){
+                                return err
                             })
                     }
                 }
