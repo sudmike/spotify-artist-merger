@@ -1,5 +1,13 @@
 # spotify-artist-merger
 
+Prep
+- Create Git Account, download Git
+- Create Github Account, download Github
+- Make Basti co-owner of Project
+- Download NodeJS
+- Create JetBrains Student Account, download WebStorm
+- Clone Project and get started
+
 Design/Functionality Backlog:
 V1
 - input of artists [Angular Spotify API, fetching correct Artistname]
