@@ -11,7 +11,7 @@ Prep
 Design/Functionality Backlog:
 V1
 - input of artists [Angular Spotify API, fetching correct Artistname]
-- artist table
+- artist table [artists as objects]
 - remove artist from table
 - custom playlist names
 - songs per artist, default based on number of artists
