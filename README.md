@@ -2,7 +2,7 @@
 
 Prep
 - Create Git Account, download Git
-- Create Github Account, download Github
+- Create Github Account
 - Make Basti co-owner of Project
 - Download NodeJS
 - Create JetBrains Student Account, download WebStorm
