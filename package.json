@@ -1,15 +1,15 @@
 {
-  "name": "artist-merger",
-  "version": "1.0.0",
-  "dependencies": {
-    "express": "^4.17.1",
-    "morgan": "^1.10.0",
-    "num-words": "^1.2.0",
-    "vash": "^0.13.0"
+  "name": "spotify-project-backend",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node ./bin/www"
   },
-  "devDependencies": {
-    "cookie-parser": "^1.4.5",
-    "http-errors": "^1.8.0",
-    "spotify-web-api-node": "^4.0.0"
+  "dependencies": {
+    "cookie-parser": "~1.4.4",
+    "debug": "~2.6.9",
+    "express": "~4.16.1",
+    "morgan": "~1.9.1",
+    "spotify-web-api-node": "^5.0.0"
   }
 }
