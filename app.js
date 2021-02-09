@@ -3,9 +3,12 @@ var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
 var SpotifyWebApi = require('spotify-web-api-node');
+var cors = require('cors');
+
 
 var indexRouter = require('./routes/index');
-var serverRouter = require('./routes/server');
+var artistMergerServerRouter = require('./routes/artist-merger/server');
+var hueServerRouter = require('./routes/hue/server');
 
 var app = express();
 
@@ -14,18 +17,13 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(cors({
+    origin: 'http://localhost:4200'
+}))
 
 app.use('/', indexRouter);
-app.use('/api', serverRouter);
+app.use('/artist-merger/api', artistMergerServerRouter);
+app.use('/hue/api', hueServerRouter);
 
 module.exports = app;
 
-
-
-var spotifyApi = new SpotifyWebApi({
-    clientId: '8c08a50634a84a1f8786e261409f71e4',
-    clientSecret: '',
-    redirectUri: 'http://localhost:3000/api/callback'
-});
-
-global.spotify = { spotifyApi: spotifyApi };
