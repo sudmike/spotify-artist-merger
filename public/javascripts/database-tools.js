@@ -9,19 +9,19 @@ var initialize = async function(sessionID, bootstrap){
         .then(data => {
             if(data.key){ // dataset found in database
                 const current = Math.round(Date.now()/1000);
-                if(current + (60*60*24) < data.dataset.accessTokenExpiration){ // access token is valid
+                if(current + (60*60*24) < data.dataset.accessToken.expiresAt){ // access token is valid
                     return {
                         api: bootstrap.connectWithTokens(
-                            data.dataset.accessToken,
-                            data.dataset.refreshToken,
+                            data.dataset.accessToken.value,
+                            data.dataset.refreshToken.value,
                             data.dataset.username
                         ),
                         lights: data.dataset.activeLights
                     }
                 }
                 else { // access token is expired
-                    if(current < data.dataset.refreshTokenExpiration){ // new access token can be generated
-                        return bootstrap.connectWithTokens('', data.dataset.refreshToken, data.dataset.username)
+                    if(current < data.dataset.refreshToken.expiresAt){ // new access token can be generated
+                        return bootstrap.connectWithTokens('', data.dataset.refreshToken.value, data.dataset.username)
                             .then(tempApi => {
                                 return hueTools.tokenRefresh(tempApi)
                                     .then(data2 => { // tokens were successfully generated
@@ -29,8 +29,8 @@ var initialize = async function(sessionID, bootstrap){
                                             .then(() => { // tokens were successfully sent to database
                                                 return {
                                                     api: bootstrap.connectWithTokens(
-                                                        data2.accessToken,
-                                                        data2.refreshToken,
+                                                        data2.accessToken.value,
+                                                        data2.refreshToken.value,
                                                         data.dataset.username
                                                     ),
                                                     lights: data.dataset.activeLights
@@ -71,10 +71,14 @@ var postDatabaseEntry = async function(sessionID, username, access, accessExpira
         {
             session: sessionID,
             username: username,
-            accessToken: access,
-            accessTokenExpiration: accessExpiration,
-            refreshToken: refresh,
-            refreshTokenExpiration: refreshExpiration
+            accessToken: {
+                value: access,
+                expiresAt: (accessExpiration > 100000000000) ? Math.round(accessExpiration/1000) : accessExpiration
+            },
+            refreshToken: {
+                value: refresh,
+                expiresAt: (refreshExpiration > 100000000000) ? Math.round(refreshExpiration/1000) : refreshExpiration
+            }
         }
     )
         .then(data => {
@@ -98,10 +102,14 @@ var updateDatabaseTokens = async function(sessionID, access, accessExpiration, r
             return axios.patch( // update values in database
                 databaseUrl + '/' + data.key + '.json',
                 {
-                    accessToken: access,
-                    accessTokenExpiration: accessExpiration,
-                    refreshToken: refresh,
-                    refreshTokenExpiration: refreshExpiration
+                    accessToken: {
+                        value: access,
+                        expiresAt: (accessExpiration > 100000000000) ? Math.round(accessExpiration/1000) : accessExpiration
+                    },
+                    refreshToken: {
+                        value: refresh,
+                        expiresAt: (refreshExpiration > 100000000000) ? Math.round(refreshExpiration/1000) : refreshExpiration
+                    }
                 }
             )
                 .then(data2 => {
@@ -137,7 +145,7 @@ var updateDatabaseActiveLights = async function(sessionID, lightIDs){
                     if(data2.status !== 200){
                         return Promise.reject(Error('Could not update lights in database!'))
                     }
-                    else{
+                    else {
                         return 'Lights successfully written to database';
                     }
                 })
@@ -162,16 +170,21 @@ var getDatabaseEntry = async function(sessionID){
             }
             else{
                 for (const key in d.data){
-                    if(d.data[key].session === sessionID){
+                    const set = d.data[key]
+                    if(set.session === sessionID){
                         return {
                             key: key,
                             dataset: {
-                                username: d.data[key].username,
-                                accessToken: d.data[key].accessToken,
-                                accessTokenExpiration: d.data[key].accessTokenExpiration,
-                                refreshToken: d.data[key].refreshToken,
-                                refreshTokenExpiration: d.data[key].refreshTokenExpiration,
-                                activeLights: d.data[key].activeLights
+                                username: set.username,
+                                accessToken: {
+                                    value: set.accessToken.value,
+                                    expiresAt: (set.accessToken.expiresAt > 100000000000) ? Math.round(set.accessToken.expiresAt/1000) : set.accessToken.expiresAt
+                                },
+                                refreshToken: {
+                                    value: set.refreshToken.value,
+                                    expiresAt: (set.refreshToken.expiresAt > 100000000000) ? Math.round(set.refreshToken.expiresAt/1000) : set.refreshToken.expiresAt
+                                },
+                                activeLights: set.activeLights
                             }
                         }
                     }
