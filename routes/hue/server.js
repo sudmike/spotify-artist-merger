@@ -122,9 +122,9 @@ router.get('/hue-callback', function(req, res){
         });
 });
 
-router.get('/hue-getLights', function(req, res){
+router.get('/hue-getLights', async function(req, res){
 
-    const session = checkHueSession(req, res);
+    const session = await checkHueSession(req, res);
 
     if(session){
         getHueApi(session)
@@ -149,7 +149,7 @@ router.get('/hue-getLights', function(req, res){
 
                             })
                             .catch(err => {
-                                console.log('ERR', err);
+                                console.log(err);
                                 res.send({
                                     status: 'error',
                                     message: err.message
@@ -157,7 +157,7 @@ router.get('/hue-getLights', function(req, res){
                             })
                     })
                     .catch(err => {
-                        console.log('ERR', err);
+                        console.log(err);
                         res.send({
                             status: 'error',
                             message: err.message
@@ -173,8 +173,8 @@ router.get('/hue-getLights', function(req, res){
     }
 });
 
-router.post('/hue-chooseLights', function(req, res){
-    const session = checkHueSession(req, res);
+router.post('/hue-chooseLights', async function(req, res){
+    const session = await checkHueSession(req, res);
 
     if(session){
         if(!req.body.lightIDs){
@@ -259,11 +259,11 @@ router.get('/vibrant-color', function(req, res){
 });
 
 // POST request has hsl in body to set lights and optionally brightness
-router.post('/hue-setLights', function(req, res, next){
+router.post('/hue-setLights', async function(req, res, next){
 
     console.log(req.body);
 
-    const session = checkHueSession(req, res);
+    const session = await checkHueSession(req, res);
 
     if(session){
         if (req.body.hsl){
@@ -339,17 +339,17 @@ router.post('/hue-setLights', function(req, res, next){
     }
 });
 
-// Command to Turn off lights. No parameters necessary
-router.post('/hue-lightsOff', function(req, res){
+// Command to Turn off lights. Parameter lightID is optional
+router.post('/hue-lightsOff', async function(req, res){
 
-    let session = checkHueSession(req, res);
+    let session = await checkHueSession(req, res);
 
     if (session) {
         getHueApi(session)
             .then(api => {
                 hueTools.lightsOff(
                     api, (req.body.lightID)
-                        ? [req.body.lightID]
+                        ? req.body.lightID
                         : getLightIDs(session)
                 )
                     .then(() => {
@@ -375,9 +375,9 @@ router.post('/hue-lightsOff', function(req, res){
 
 });
 
-router.post('/hue-pingLight', function(req, res){
-    let session = checkHueSession(req, res);
-    console.log(req.query);
+router.post('/hue-pingLight', async function(req, res){
+
+    let session = await checkHueSession(req, res);
 
     if(session){
         if(!req.body.lightID){
@@ -443,19 +443,28 @@ var getLightIDs = function (sessionId){
     return hueLights.get(sessionId);
 }
 
-var checkHueSession = function(req, res){
-    if(req.query.session){ // for get requests
-        return req.query.session
-    }
-    else if(req.body.session){ // for posts requests
-        return req.body.session;
-    }
-    else{
+// check session in authorization header and ensures that hueApi is cached
+var checkHueSession = async function(req, res){
+
+    if (!req.headers.authorization){ // authorization header not attached
         res.send({
             status: 'error',
             message: 'No identifying Session was attached to the request!'
         });
         return null;
+    }
+    else { // authorization header attached
+        return getHueApi(req.headers.authorization) // check if session exists by looking for hue api
+            .then(() => { // session :)
+                return req.headers.authorization;
+            })
+            .catch(() => { // session :(
+                res.send({
+                    status: 'error',
+                    message: 'Identifying Session could not be found! Check logs.'
+                });
+                return null;
+            });
     }
 }
 
