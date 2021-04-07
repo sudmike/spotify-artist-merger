@@ -106,6 +106,7 @@ var tokenRefresh = async function(api){
     }
 }
 
+// get the name, id and availability status of all colored light bulbs
 var getLights = async function(api){
     return api.lights.getAll()
         .then(data => {
@@ -128,6 +129,7 @@ var getLights = async function(api){
 
 }
 
+// set the color of one or more lights
 var setLights = async function(api, lightIDs, hsl, brightness = 0.5) {
     const colorLightState = new LightState()
         .on(true)
@@ -150,49 +152,52 @@ var setLights = async function(api, lightIDs, hsl, brightness = 0.5) {
         : Promise.reject(Error('Failed to set lights with IDs ' + failedAttempts.toString() + '!'))
 }
 
+// make a light flash - void
 var pingLight = async function(api, lightID){
 
-    // determine light state for ping
-    const pingLightState = new LightState()
-        .on(true)
-        .hsl(120,100,50)
-        .transitionFast()
+    // determine original state of light bulb
+    const originalState = await api.lights.getLightState(lightID)
+        .then(data => {
+            data.alert = 'none';
+            return data;
+        })
+        .catch(() => {
+            return undefined;
+        });
 
-    // for(const lightID of lightID){
-        // determine light state for after ping (original state)
-        const originalLightState = await api.lights.getLightState(lightID)
-            .then(ogLightState => {
-                return ogLightState;
-                // return (ogLightState.on)
-                //     ? ogLightState // case that light is on
-                //     : new LightState() // case that light is off
-                //         .off()
-                //         .transitionFast()
-                //         .bri(ogLightState.bri)
-            })
-            .catch(() => {
-                return new LightState()
-                    .off()
-                    .transitionFast()
-            });
+    if(originalState){
 
-        // send ping out
-        return setLightWithState(api, lightID, pingLightState) // set light
-            .then(() => {
-                return setTimeout(() => {
-                    return setLightWithState(api, lightID, originalLightState) // unset light
-                        .then(() => {
-                            return Promise.resolve();
-                        })
-                        .catch(() => {
-                            return Promise.reject(Error('Failed to reset light during ping!'));
-                        });
-                }, 700);
-            })
-            .catch(() => {
-                Promise.reject(Error('Failed to set light during ping!'))
-            });
-    // }
+        const _BRIGHT = 255 * 0.75;
+        const _DARK = 255 * 0.25;
+
+        if(originalState.bri <= _DARK || originalState.bri >= _BRIGHT || !originalState.on){ // single switch to other extreme
+
+            let transitionState = Object.assign({}, originalState); // assign by copy
+            transitionState.on = true;
+            transitionState.bri = (originalState.bri <= _DARK || !originalState.on ) ? _BRIGHT+30 : _DARK-30
+
+            setTimeout(() => {setLightWithState(api, lightID, transitionState);}, 0);
+            setTimeout(() => {setLightWithState(api, lightID, originalState);}, 500);
+        }
+        else { // double change (dim-up -> dim-down -> original)
+
+            let transitionState1 = Object.assign({}, originalState);
+            transitionState1.on = true;
+            transitionState1.bri = _BRIGHT+30;
+
+            let transitionState2 = Object.assign({}, originalState);
+            transitionState2.on = true;
+            transitionState2.bri = _DARK-30;
+
+            setTimeout(() => {setLightWithState(api, lightID, transitionState1);}, 0);
+            setTimeout(() => {setLightWithState(api, lightID, transitionState2);}, 500);
+            setTimeout(() => {setLightWithState(api, lightID, originalState);}, 1000);
+        }
+
+    }
+    else {
+        console.log('Failed to Ping light ', lightID, '!')
+    }
 }
 
 var setLightWithState = async function(api, lightID, lightState){
