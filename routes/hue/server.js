@@ -308,18 +308,11 @@ router.post('/hue-setLights', async function(req, res, next){
             getHueApi(session)
                 .then(api => {
                     hueTools.setLights(api, getLightIDs(session), hsl, brightness)
-                        .then(() => {
+                        .finally(() => {
                             res.send({
                                 status: 'success',
                                 data: {}
                             })
-                        })
-                        .catch(err => {
-                            console.log(err);
-                            res.send({
-                                status: 'error',
-                                message: err.message
-                            });
                         });
                 })
                 .catch(e => {
@@ -390,17 +383,10 @@ router.post('/hue-pingLight', async function(req, res){
             getHueApi(session)
                 .then(api => {
                     hueTools.pingLight(api, req.body.lightID)
-                        .then(() => {
+                        .finally(() => { // pingLight() does not return errors if they occur
                             res.send({
                                 status: 'success',
                                 body: {}
-                            });
-                        })
-                        .catch(err => {
-                            console.log(err);
-                            res.send({
-                                status: 'error',
-                                message: 'Failed to ping lights! Check logs for more information.'
                             });
                         });
                 })

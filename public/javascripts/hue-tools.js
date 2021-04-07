@@ -137,19 +137,12 @@ var setLights = async function(api, lightIDs, hsl, brightness = 0.5) {
 
     colorLightState._state.bri = Math.min(colorLightState._state.bri, Math.round(brightness * 255));
 
-    let failedAttempts = [];
-
     for (let lightID of lightIDs){
-        await setLightWithState(api, lightID, colorLightState)
+        setLightWithState(api, lightID, colorLightState)
             .catch(err => {
-                console.log('Failed setting light!', err);
-                failedAttempts.push(lightID);
+                console.log(err);
             });
     }
-
-    return (failedAttempts.length === 0)
-        ? Promise.resolve()
-        : Promise.reject(Error('Failed to set lights with IDs ' + failedAttempts.toString() + '!'))
 }
 
 // make a light flash - void
