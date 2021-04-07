@@ -1,9 +1,7 @@
 var express = require('express');
 var router = express.Router();
-var axios = require('axios');
 var SpotifyWebApi = require('spotify-web-api-node');
 var v3 = require('node-hue-api').v3;
-var Api = require('node-hue-api');
 var spotifyLoginTools = require('../../public/javascripts/spotify-login-tools');
 var hueTools = require('../../public/javascripts/hue-tools');
 var vibrantTools = require('../../public/javascripts/vibrant-tools');
@@ -29,8 +27,6 @@ router.get('/spotify-refresh', function(req, res){
         spotifyApi.refreshAccessToken()
             .then(data => {
                 if(data.statusCode === 200){
-                    console.log(spotifyApi.getCredentials())
-                    spotifyApi.setAccessToken(data.body.access_token);
                     console.log(spotifyApi.getCredentials())
                     res.send({
                         status: 'success',
@@ -68,8 +64,6 @@ router.get('/hue-callback', function(req, res){
     const frontendURL = 'http://localhost:4200/login/callback';
     hueTools.callback(remoteBootstrap, /*frontendURL,*/ req, res)
         .then(data => {
-            console.log('Chceckcheck', data)
-
             if(!data.api){
                 const url = frontendURL + '?error=' + 'Could not create hue api!';
                 res.redirect(url);
@@ -79,99 +73,91 @@ router.get('/hue-callback', function(req, res){
                 res.redirect(url);
             }
             else{
-                const freshSesh = hueTools.generateRandomString(8); //... random string (8 characters letters)
-                console.log('fresh session ID: ' ,freshSesh);
-                hueApis.set(freshSesh, data.api);
+                const freshSession = hueTools.generateRandomString(8); //... random string (8 characters letters)
+                hueApis.set(freshSession, data.api);
 
                 databaseTools.postDatabaseEntry(
-                    freshSesh,
+                    freshSession,
                     data.credentials.username,
                     data.credentials.accessToken,
                     data.credentials.accessTokenExpiration,
                     data.credentials.refreshToken,
                     data.credentials.refreshTokenExpiration
                 )
-                    .then(() => { // successfully written to db
-                        res.redirect(
-                            frontendURL +
-                            '?accessToken=' + data.credentials.accessToken +
-                            '?session=' + freshSesh
-                        );
+                    .then(() => { // hue credentials successfully written to db
+                        hueTools.getLights(data.api) // next step: update database to include light IDs
+                            .then(lights => {
+                                databaseTools.updateDatabaseActiveLights( // write all lightIDs into database as active
+                                    freshSession,
+                                    lights.map(d => {return d.id;})
+                                )
+                                    .then(() => {
+                                        res.redirect(
+                                            frontendURL +
+                                            '?session=' + freshSession
+                                        );
+                                    })
+                                    .catch(err => {
+                                        console.log(err);
+                                        const url = frontendURL + '?error=' + err.message;
+                                        res.redirect(url);
+                                    });
+                            })
+                            .catch(err => {
+                                console.log(err)
+                                const url = frontendURL + '?error=' + err.message;
+                                res.redirect(url);
+                            });
                     })
                     .catch(err => {
+                        console.log(err);
                         const url = frontendURL + '?error=' + err.message;
                         res.redirect(url);
                     });
-
             }
-
         })
         .catch(err => {
             const url = frontendURL + '?error=' + err.message
             res.redirect(url);
-        })
-});
-
-router.get('/hue-login/debug', function(req, res){
-    const username = '2a6jOWr-kcqeO13ePDwp6K4yF-RZdxAa9aZ8A0ff';
-    const access = 'PKAwQgCPfYX7XWKOh0dKrX80y6Ya';
-    const refresh = 'ZXxvgcsy1I6XPKmHte4qBeTVhZk7RnuC';
-
-    // hueApi = hueTools.hueDebugLogin(remoteBootstrap, username, access, refresh);
-    hueTools.debugLogin(remoteBootstrap, username, access, refresh)
-        .then(data => {
-            console.log(data);
-            hueApi = data;
-            res.send({
-                status: 'success',
-                data: {
-                    username: username,
-                    accessToken: access,
-                    accessTokenExpiration: data._config._remoteApi._tokens._data.accessToken.expiresAt,
-                    refreshToken: refresh,
-                    refreshTokenExpiration: data._config._remoteApi._tokens._data.refreshToken.expiresAt,
-                }
-            });
-        })
-        .catch(err => {
-            console.log(err);
-            res.send({
-                status: 'error',
-                message: err
-            });
         });
 });
 
-// router.get('/hue-refresh', function(req, res){
-//     hueTools.tokenRefresh(hueApi)
-//         .then(data => {
-//             console.log('REFRESH', data);
-//         })
-//         .catch(err => {
-//            console.log('REFRESH FAIL', err);
-//         });
-// });
+router.get('/hue-getLights', async function(req, res){
 
-
-router.get('/hue-getLights', function(req, res){
-
-    const session = checkHueSession(req, res);
+    const session = await checkHueSession(req, res);
 
     if(session){
         getHueApi(session)
             .then(api => {
                 hueTools.getLights(api)
-                    .then(data => {
-                        console.log('DATA', data);
-                        res.send({
-                            status: 'success',
-                            data: {
-                                lights: data
-                            }
-                        });
+                    .then(lights => {
+                        databaseTools.getDatabaseActiveLights(session)
+                            .then(actives => {
+                                res.send({
+                                    status: 'success',
+                                    data: {
+                                        lights: lights.map(l => {
+                                            return {
+                                                name: l.name,
+                                                id: l.id,
+                                                reachable: l.reachable,
+                                                active: actives.includes(l.id)
+                                            }
+                                        })
+                                    }
+                                })
+
+                            })
+                            .catch(err => {
+                                console.log(err);
+                                res.send({
+                                    status: 'error',
+                                    message: err.message
+                                });
+                            })
                     })
                     .catch(err => {
-                        console.log('ERR', err);
+                        console.log(err);
                         res.send({
                             status: 'error',
                             message: err.message
@@ -184,6 +170,66 @@ router.get('/hue-getLights', function(req, res){
                     message: e.message
                 });
             });
+    }
+});
+
+router.post('/hue-chooseLights', async function(req, res){
+    const session = await checkHueSession(req, res);
+
+    if(session){
+        if(!req.body.lightIDs){
+            res.send({
+                status: 'error',
+                message: 'Server did not receive any values for light IDs!'
+            });
+        }
+        else {
+            getHueApi(session)
+                .then(api => {
+                    hueTools.getLights(api)
+                        .then(lights => {
+                            let pass = true;
+                            for(const lightID of req.body.lightIDs){ // compare lights from request with existing lights
+                                if(!lights.map(d => {return d.id}).includes(lightID)){
+                                    res.send({
+                                        status: 'error',
+                                        message: 'Server did not receive valid values for light IDs!'
+                                    });
+                                    pass = false;
+                                    return;
+                                }
+                            }
+                            if(pass){
+                                databaseTools.updateDatabaseActiveLights(session, req.body.lightIDs)
+                                    .then(() => {
+                                        hueLights.set(session, req.body.lightIDs);
+                                        res.send({
+                                            status: 'success',
+                                            data: {}
+                                        });
+                                    })
+                                    .catch(err => {
+                                        res.send({
+                                            status: 'error',
+                                            message: err.message
+                                        });
+                                    });
+                            }
+                        })
+                        .catch(err => {
+                            res.send({
+                                status: 'error',
+                                message: err.message
+                            });
+                        });
+                })
+                .catch(err => {
+                    res.send({
+                        status: 'error',
+                        message: err.message
+                    });
+                });
+        }
     }
 });
 
@@ -213,11 +259,11 @@ router.get('/vibrant-color', function(req, res){
 });
 
 // POST request has hsl in body to set lights and optionally brightness
-router.post('/hue-setLights', function(req, res, next){
+router.post('/hue-setLights', async function(req, res, next){
 
     console.log(req.body);
 
-    const session = checkHueSession(req, res);
+    const session = await checkHueSession(req, res);
 
     if(session){
         if (req.body.hsl){
@@ -261,19 +307,12 @@ router.post('/hue-setLights', function(req, res, next){
 
             getHueApi(session)
                 .then(api => {
-                    hueTools.setLights(api, lightIDs, hsl, brightness)
-                        .then(() => {
+                    hueTools.setLights(api, getLightIDs(session), hsl, brightness)
+                        .finally(() => {
                             res.send({
                                 status: 'success',
                                 data: {}
                             })
-                        })
-                        .catch(err => {
-                            console.log(err);
-                            res.send({
-                                status: 'error',
-                                message: err.message
-                            });
                         });
                 })
                 .catch(e => {
@@ -293,15 +332,19 @@ router.post('/hue-setLights', function(req, res, next){
     }
 });
 
-// Command to Turn off lights. No parameters necessary
-router.get('/hue-lightsOff', function(req, res){
+// Command to Turn off lights. Parameter lightID is optional
+router.post('/hue-lightsOff', async function(req, res){
 
-    let session = checkHueSession(req, res);
+    let session = await checkHueSession(req, res);
 
-    if(session){
+    if (session) {
         getHueApi(session)
             .then(api => {
-                hueTools.lightsOff(api, lightIDs)
+                hueTools.lightsOff(
+                    api, (req.body.lightID)
+                        ? req.body.lightID
+                        : getLightIDs(session)
+                )
                     .then(() => {
                         res.send({
                             status: 'success',
@@ -315,36 +358,53 @@ router.get('/hue-lightsOff', function(req, res){
                         });
                     });
             })
-            .catch(e => {
+            .catch(err => {
                 res.send({
                     status: 'error',
-                    message: e.message
+                    message: err.message
                 });
             });
+    }
+
+});
+
+router.post('/hue-pingLight', async function(req, res){
+
+    let session = await checkHueSession(req, res);
+
+    if(session){
+        if(!req.body.lightID){
+            res.send({
+                status: 'error',
+                message: 'Server did not receive light IDs in request!'
+            });
+        }
+        else {
+            getHueApi(session)
+                .then(api => {
+                    hueTools.pingLight(api, req.body.lightID)
+                        .finally(() => { // pingLight() does not return errors if they occur
+                            res.send({
+                                status: 'success',
+                                body: {}
+                            });
+                        });
+                })
+                .catch(err => {
+                    res.send({
+                        status: 'error',
+                        message: err.message
+                    });
+                });
+        }
     }
 });
 
 
 router.get('/test', function (req, res){
 
-    // const SESSIONID = 'pat';
-    //
-    // databaseTools.initialize(SESSIONID, remoteBootstrap)
-    //     .then(data => {
-    //         console.log('TL data:', data);
-    //         hueApis.set(SESSIONID, data);
-    //         res.send ({
-    //             status: 'success',
-    //             data: {}
-    //         })
-    //     })
-    //     .catch(err => {
-    //         console.log('TL err:', err);
-    //         res.send ({
-    //             status: 'error',
-    //             data: err.message
-    //         })
-    //     })
+    const session = checkHueSession(req, res);
+
 });
 
 var getHueApi = async function (sessionId){
@@ -353,9 +413,10 @@ var getHueApi = async function (sessionId){
     }
     else{ // case that API connected to session has to be initialized
         return databaseTools.initialize(sessionId, remoteBootstrap)
-            .then(api => {
-                hueApis.set(sessionId, api);
-                return api;
+            .then(data => {
+                hueApis.set(sessionId, data.api);
+                hueLights.set(sessionId, data.lights)
+                return data.api;
             })
             .catch(err => {
                 console.log(err); // do not remove console log. Outputs details of failure.
@@ -364,19 +425,32 @@ var getHueApi = async function (sessionId){
     }
 }
 
-var checkHueSession = function(req, res){
-    if(req.query.session){ // for get requests
-        return req.query.session
-    }
-    else if(req.body.session){ // for posts requests
-        return req.body.session;
-    }
-    else{
+var getLightIDs = function (sessionId){
+    return hueLights.get(sessionId);
+}
+
+// check session in authorization header and ensures that hueApi is cached
+var checkHueSession = async function(req, res){
+
+    if (!req.headers.authorization){ // authorization header not attached
         res.send({
             status: 'error',
             message: 'No identifying Session was attached to the request!'
         });
         return null;
+    }
+    else { // authorization header attached
+        return getHueApi(req.headers.authorization) // check if session exists by looking for hue api
+            .then(() => { // session :)
+                return req.headers.authorization;
+            })
+            .catch(() => { // session :(
+                res.send({
+                    status: 'error',
+                    message: 'Identifying Session could not be found! Check logs.'
+                });
+                return null;
+            });
     }
 }
 
@@ -396,11 +470,7 @@ const hueApiCredentials = {
 
 const remoteBootstrap = v3.api.createRemote(hueApiCredentials.clientId, hueApiCredentials.clientSecret);
 
-
-let hueApi = undefined;
 let hueApis = new Map();
-
-let lightIDs = [3,4,5];
-
+let hueLights = new Map();
 
 module.exports = router;

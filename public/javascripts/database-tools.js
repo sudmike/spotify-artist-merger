@@ -9,34 +9,37 @@ var initialize = async function(sessionID, bootstrap){
         .then(data => {
             if(data.key){ // dataset found in database
                 const current = Math.round(Date.now()/1000);
-                if(current + (60*60*24) < data.dataset.accessTokenExpiration){ // access token is valid
-                    return bootstrap.connectWithTokens(
-                        data.dataset.accessToken,
-                        data.dataset.refreshToken,
-                        data.dataset.username
-                    );
+                if(current + (60*60*24) < data.dataset.accessToken.expiresAt){ // access token is valid
+                    return {
+                        api: bootstrap.connectWithTokens(
+                            data.dataset.accessToken.value,
+                            data.dataset.refreshToken.value,
+                            data.dataset.username
+                        ),
+                        lights: data.dataset.activeLights
+                    }
                 }
                 else { // access token is expired
-                    if(current < data.dataset.refreshTokenExpiration){ // new access token can be generated
-                        return bootstrap.connectWithTokens('', data.dataset.refreshToken, data.dataset.username)
+                    if(current < data.dataset.refreshToken.expiresAt){ // new access token can be generated
+                        return bootstrap.connectWithTokens('', data.dataset.refreshToken.value, data.dataset.username)
                             .then(tempApi => {
                                 return hueTools.tokenRefresh(tempApi)
                                     .then(data2 => { // tokens were successfully generated
                                         return updateDatabaseTokens(sessionID, data2.accessToken.value, data2.accessToken.expiresAt, data2.refreshToken.value, data2.refreshToken.expiresAt)
                                             .then(() => { // tokens were successfully sent to database
-                                                return bootstrap.connectWithTokens(
-                                                    data2.accessToken,
-                                                    data2.refreshToken,
-                                                    data.dataset.username
-                                                );
+                                                return {
+                                                    api: bootstrap.connectWithTokens(
+                                                        data2.accessToken.value,
+                                                        data2.refreshToken.value,
+                                                        data.dataset.username
+                                                    ),
+                                                    lights: data.dataset.activeLights
+                                                }
                                             })
                                             .catch(err => {
-                                                if(err instanceof Error){
-                                                    return Promise.reject(err);
-                                                }
-                                                else {
-                                                    return Promise.reject('Could not update expired tokens!')
-                                                }
+                                                return (err instanceof Error)
+                                                    ? Promise.reject(err)
+                                                    : Promise.reject(Error('Could not update expired tokens!'));
                                             });
                                     })
                                     .catch(err => {
@@ -50,12 +53,6 @@ var initialize = async function(sessionID, bootstrap){
                     }
                     else { // refresh token is expired
                         return null;
-                        // return {
-                        //     username: null,
-                        //     accessToken: null,
-                        //     refreshToken: null
-                        // };
-                        // ... start from scratch
                     }
                 }
             }
@@ -74,10 +71,14 @@ var postDatabaseEntry = async function(sessionID, username, access, accessExpira
         {
             session: sessionID,
             username: username,
-            accessToken: access,
-            accessTokenExpiration: accessExpiration,
-            refreshToken: refresh,
-            refreshTokenExpiration: refreshExpiration
+            accessToken: {
+                value: access,
+                expiresAt: (accessExpiration > 100000000000) ? Math.round(accessExpiration/1000) : accessExpiration
+            },
+            refreshToken: {
+                value: refresh,
+                expiresAt: (refreshExpiration > 100000000000) ? Math.round(refreshExpiration/1000) : refreshExpiration
+            }
         }
     )
         .then(data => {
@@ -89,12 +90,9 @@ var postDatabaseEntry = async function(sessionID, username, access, accessExpira
             }
         })
         .catch(err => {
-            if(err instanceof Error){
-                return Promise.reject(err);
-            }
-            else {
-                return Promise.reject(Error('Post request to add new database entry failed!'));
-            }
+            return (err instanceof Error)
+                ? Promise.reject(err)
+                : Promise.reject(Error('Post request to add new database entry failed!'));
         })
 }
 
@@ -104,10 +102,14 @@ var updateDatabaseTokens = async function(sessionID, access, accessExpiration, r
             return axios.patch( // update values in database
                 databaseUrl + '/' + data.key + '.json',
                 {
-                    accessToken: access,
-                    accessTokenExpiration: accessExpiration,
-                    refreshToken: refresh,
-                    refreshTokenExpiration: refreshExpiration
+                    accessToken: {
+                        value: access,
+                        expiresAt: (accessExpiration > 100000000000) ? Math.round(accessExpiration/1000) : accessExpiration
+                    },
+                    refreshToken: {
+                        value: refresh,
+                        expiresAt: (refreshExpiration > 100000000000) ? Math.round(refreshExpiration/1000) : refreshExpiration
+                    }
                 }
             )
                 .then(data2 => {
@@ -119,19 +121,43 @@ var updateDatabaseTokens = async function(sessionID, access, accessExpiration, r
                     }
                 })
                 .catch(err => {
-                    if(err instanceof Error){
-                        return Promise.reject(err);
-                    }
-                    else{
-                        return Promise.reject(Error('Could not update tokens in database!'))
-                    }
+                    return (err instanceof Error)
+                        ? Promise.reject(err)
+                        : Promise.reject(Error('Could not update tokens in database!'));
                 });
 
         })
         .catch(err => {
             return Promise.reject(err); //getDatabaseEntry() only rejects in form of Errors. No need to check.
-        })
+        });
+}
 
+var updateDatabaseActiveLights = async function(sessionID, lightIDs){
+    return getDatabaseEntry(sessionID) // get database key
+        .then(data => {
+            return axios.patch( // update values in database
+                databaseUrl + '/' + data.key + '.json',
+                {
+                    activeLights: lightIDs,
+                }
+            )
+                .then(data2 => {
+                    if(data2.status !== 200){
+                        return Promise.reject(Error('Could not update lights in database!'))
+                    }
+                    else {
+                        return 'Lights successfully written to database';
+                    }
+                })
+                .catch(err => {
+                    return (err instanceof Error)
+                        ? Promise.reject(err)
+                        : Promise.reject(Error('Could not update lights in database!'));
+                });
+        })
+        .catch(err => {
+            return Promise.reject(err); //getDatabaseEntry() only rejects in form of Errors. No need to check.
+        });
 }
 
 var getDatabaseEntry = async function(sessionID){
@@ -144,15 +170,21 @@ var getDatabaseEntry = async function(sessionID){
             }
             else{
                 for (const key in d.data){
-                    if(d.data[key].session === sessionID){
+                    const set = d.data[key]
+                    if(set.session === sessionID){
                         return {
                             key: key,
                             dataset: {
-                                username: d.data[key].username,
-                                accessToken: d.data[key].accessToken,
-                                accessTokenExpiration: d.data[key].accessTokenExpiration,
-                                refreshToken: d.data[key].refreshToken,
-                                refreshTokenExpiration: d.data[key].refreshTokenExpiration,
+                                username: set.username,
+                                accessToken: {
+                                    value: set.accessToken.value,
+                                    expiresAt: (set.accessToken.expiresAt > 100000000000) ? Math.round(set.accessToken.expiresAt/1000) : set.accessToken.expiresAt
+                                },
+                                refreshToken: {
+                                    value: set.refreshToken.value,
+                                    expiresAt: (set.refreshToken.expiresAt > 100000000000) ? Math.round(set.refreshToken.expiresAt/1000) : set.refreshToken.expiresAt
+                                },
+                                activeLights: set.activeLights
                             }
                         }
                     }
@@ -164,14 +196,28 @@ var getDatabaseEntry = async function(sessionID){
             }
         })
         .catch(err => {
-            if(err instanceof Error){
-                return Promise.reject(err);
+            return (err instanceof Error)
+                ? Promise.reject(err)
+                : Promise.reject(Error('Could not communicate with Firebase!'));
+        });
+}
+
+var getDatabaseActiveLights = async function(sessionID){
+    return getDatabaseEntry(sessionID)
+        .then(data => {
+            if(data.key){
+                return data.dataset.activeLights;
             }
             else {
-                return Promise.reject('Could not communicate with Firebase!');
+                return Promise.reject(Error('Could not get dataset related to session!'));
             }
+        })
+        .catch(err => {
+            return (err instanceof Error)
+                ? Promise.reject(err)
+                : Promise.reject(Error('Could not get active lights from database!'))
         });
 }
 
 
-module.exports = {initialize, postDatabaseEntry}
+module.exports = {initialize, postDatabaseEntry, updateDatabaseActiveLights, getDatabaseActiveLights}

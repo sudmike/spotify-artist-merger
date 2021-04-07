@@ -1,4 +1,3 @@
-var v3 = require('node-hue-api').v3;
 var LightState = require('node-hue-api').v3.lightStates.LightState;
 
 
@@ -10,7 +9,6 @@ var login = function(remoteBootstrap, apiBase, res){
     res.cookie('hue_auth_state', authState);
 
     // redirect to hue
-    // console.log(remoteBootstrap.getAuthCodeUrl(deviceName, appId, authState));
     res.redirect(remoteBootstrap.getAuthCodeUrl(apiBase.deviceName, apiBase.appId, authState));
 }
 
@@ -61,10 +59,7 @@ var callback = async function(remoteBootstrap, /*callbackURL,*/ req, res){ //spo
             })
     }
     else {
-        // console.log();
-        // const url = callbackURL + '?error' + 'no_authorization_code_from_hue';
         return Promise.reject(Error('no authorization code from hue'))
-        // res.redirect(url);
     }
 }
 
@@ -104,33 +99,29 @@ var tokenRefresh = async function(api){
                 }
             })
             .catch(err => {
-                if(err instanceof Error){
-                    return Promise.reject(err);
-                }
-                else{
-                    Promise.reject(Error('Could not refresh hue tokens!'));
-                }
+                return (err instanceof Error)
+                    ? Promise.reject(err)
+                    : Promise.reject(Error('Could not refresh hue tokens!'));
             });
     }
 }
 
+// get the name, id and availability status of all colored light bulbs
 var getLights = async function(api){
     return api.lights.getAll()
         .then(data => {
-
-        return data
-            .filter(light => {
-                return light._data.type.toLowerCase().includes('extended color');
-            })
-            .map(light => {
-                return {
-                    name: light._data.name,
-                    id: light._data.id,
-                    reachable: light._data.state.reachable
-                }
-            });
-
-    })
+            return data
+                .filter(light => {
+                    return light._data.type.toLowerCase().includes('extended color');
+                })
+                .map(light => {
+                    return {
+                        name: light._data.name,
+                        id: light._data.id,
+                        reachable: light._data.state.reachable,
+                    }
+                });
+        })
         .catch(err => {
             console.log(err);
             return Promise.reject(Error('Could not get lights'))
@@ -138,37 +129,89 @@ var getLights = async function(api){
 
 }
 
+// set the color of one or more lights
 var setLights = async function(api, lightIDs, hsl, brightness = 0.5) {
     const colorLightState = new LightState()
         .on(true)
         .hsl(hsl[0], hsl[1], hsl[2]);
 
-    console.log(colorLightState._state.bri, brightness * 255);
     colorLightState._state.bri = Math.min(colorLightState._state.bri, Math.round(brightness * 255));
 
     for (let lightID of lightIDs){
-        await api.lights.setLightState(lightID, colorLightState)
-            .then(data => {
-                if(!data){
-                    return Promise.reject(Error('Could not set Light with ID ' + lightID + '!'));
-                }
-            })
+        setLightWithState(api, lightID, colorLightState)
             .catch(err => {
-                if(err instanceof Error){
-                    return Promise.reject(err);
-                }
-                else{
-                    console.log('error: ', err);
-                    return Promise.reject(Error('Error when calling function to set lights!'));
-                }
+                console.log(err);
             });
     }
+}
+
+// make a light flash - void
+var pingLight = async function(api, lightID){
+
+    // determine original state of light bulb
+    const originalState = await api.lights.getLightState(lightID)
+        .then(data => {
+            data.alert = 'none';
+            return data;
+        })
+        .catch(() => {
+            return undefined;
+        });
+
+    if(originalState){
+
+        const _BRIGHT = 255 * 0.75;
+        const _DARK = 255 * 0.25;
+
+        if(originalState.bri <= _DARK || originalState.bri >= _BRIGHT || !originalState.on){ // single switch to other extreme
+
+            let transitionState = Object.assign({}, originalState); // assign by copy
+            transitionState.on = true;
+            transitionState.bri = (originalState.bri <= _DARK || !originalState.on ) ? _BRIGHT+30 : _DARK-30
+
+            setTimeout(() => {setLightWithState(api, lightID, transitionState);}, 0);
+            setTimeout(() => {setLightWithState(api, lightID, originalState);}, 500);
+        }
+        else { // double change (dim-up -> dim-down -> original)
+
+            let transitionState1 = Object.assign({}, originalState);
+            transitionState1.on = true;
+            transitionState1.bri = _BRIGHT+30;
+
+            let transitionState2 = Object.assign({}, originalState);
+            transitionState2.on = true;
+            transitionState2.bri = _DARK-30;
+
+            setTimeout(() => {setLightWithState(api, lightID, transitionState1);}, 0);
+            setTimeout(() => {setLightWithState(api, lightID, transitionState2);}, 500);
+            setTimeout(() => {setLightWithState(api, lightID, originalState);}, 1000);
+        }
+
+    }
+    else {
+        console.log('Failed to Ping light ', lightID, '!')
+    }
+}
+
+var setLightWithState = async function(api, lightID, lightState){
+    return api.lights.setLightState(lightID, lightState)
+        .then(result => {
+            return (result)
+                ? Promise.resolve()
+                : Promise.reject(Error('Could not set light with ID ' + lightID + '!'));
+        })
+        .catch(err => {
+            return (err instanceof Error)
+            ? Promise.reject(err)
+            : Promise.reject(Error('Error when calling function to set light with ID ' + lightID + '!'));
+        });
 }
 
 var lightsOff = async function(api, lightIDs){
     const colorLightState = new LightState()
         .off();
 
+    console.log(lightIDs)
     for (let lightID of lightIDs){
         await api.lights.setLightState(lightID, colorLightState)
             .then(data => {
@@ -177,17 +220,11 @@ var lightsOff = async function(api, lightIDs){
                 }
             })
             .catch(err => {
-                if(err instanceof Error){
-                    return Promise.reject(err);
-                }
-                else{
-                    console.log('error: ', err);
-                    return Promise.reject(Error('Error when calling function to turn off lights!'));
-                }
-            })
+                return (err instanceof Error)
+                    ? Promise.reject(err)
+                    : Promise.reject(Error('Error when calling function to turn off lights!'));
+            });
     }
-
-
 }
 
 
@@ -205,4 +242,4 @@ var generateRandomString = function(length) {
 
 
 
-module.exports = { login, callback, debugLogin, getLights, setLights, lightsOff, tokenRefresh, generateRandomString }
+module.exports = { login, callback, debugLogin, getLights, setLights, lightsOff, tokenRefresh, generateRandomString, pingLight }
